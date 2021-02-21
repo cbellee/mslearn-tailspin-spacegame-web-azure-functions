@@ -169,7 +169,7 @@ stages:
             displayName: 'Update web app settings'
             inputs:
               azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
-              appName: $(WEBAPP_NAME)
+              appName: $(WEB_APP_NAME)
               resourceGroupName: $(RG_NAME)
               appSettings: |
                 [
