@@ -83,8 +83,8 @@ stages:
     pool:
       vmImage: 'ubuntu-18.04'
     environment: spike
-    variables:
-    - group: Release
+    #variables:
+    #- group: Release
     strategy:
       runOnce:
         deploy:
@@ -139,8 +139,8 @@ stages:
     pool:
       vmImage: 'ubuntu-18.04'
     environment: spike
-    variables:
-    - group: Release
+    #variables:
+    #- group: Release
     strategy:
       runOnce:
         deploy:
