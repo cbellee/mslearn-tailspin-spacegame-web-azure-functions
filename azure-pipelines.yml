@@ -160,7 +160,7 @@ stages:
             inputs:
               azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
               appType: functionAppLinux
-              appName: $(LEADERBOARD_NAME)
+              appName: $(FUNCTION_APP_NAME)
               package: '$(Pipeline.Workspace)/drop/$(BUILD_CONFIGURATION)/Tailspin.SpaceGame.LeaderboardFunction.zip'
               runtimeStack: DOCKER|microsoft/azure-functions-dotnet-core3.0:3.0
               startUpCommand: 'func azure functionapp publish $(FUNCTION_APP_NAME) --no-bundler'
