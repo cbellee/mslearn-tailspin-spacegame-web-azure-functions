@@ -133,7 +133,7 @@ stages:
 
 - stage: 'Deploy'
   displayName: 'Deploy the web application'
-  dependsOn: Build
+  dependsOn: 'DeployInfrastructure'
   jobs:
   - deployment: Deploy
     pool:
