@@ -1,8 +1,19 @@
 trigger:
-- '*'
+  branches:
+    include:
+      - master
 
 variables:
-  buildConfiguration: 'Release'
+  BUILD_CONFIGURATION: 'Release'
+  AZURE_SUBSCRIPTION_CXN: 'Azure_CXP_FTA_CBELLEE_Cxn'
+  LOCATION: 'australiaeast'
+  SUFFIX: 6340
+  WEB_APP_NAME: 'tailspin-space-game-web-$(SUFFIX)'
+  FUNCTION_APP_NAME: 'tailspin-space-game-leaderboard-$(SUFFIX)'
+  STORAGE_NAME: 'tailspinspacegame$(SUFFIX)'
+  RG_NAME: 'tailspin-space-game-rg'
+  ASP_SKU: 'B1'
+  PLAN_NAME: 'tailspin-space-game-asp'
 
 stages:
 - stage: 'Build'
@@ -47,23 +58,78 @@ stages:
         projects: '**/*.csproj'
 
     - task: DotNetCoreCLI@2
-      displayName: 'Build the project - $(buildConfiguration)'
+      displayName: 'Build the project - $(BUILD_CONFIGURATION)'
       inputs:
         command: 'build'
-        arguments: '--no-restore --configuration $(buildConfiguration)'
+        arguments: '--no-restore --configuration $(BUILD_CONFIGURATION)'
         projects: '**/*.csproj'
 
     - task: DotNetCoreCLI@2
-      displayName: 'Publish the project - $(buildConfiguration)'
+      displayName: 'Publish the project - $(BUILD_CONFIGURATION)'
       inputs:
         command: 'publish'
         projects: '**/*.csproj'
         publishWebProjects: false
-        arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
+        arguments: '--no-build --configuration $(BUILD_CONFIGURATION) --output $(Build.ArtifactStagingDirectory)/$(BUILD_CONFIGURATION)'
         zipAfterPublish: true
 
     - publish: '$(Build.ArtifactStagingDirectory)'
       artifact: drop
+
+- stage: 'DeployInfrastructure'
+  displayName: 'DeployInfrastructure'
+  jobs:
+  - deployment: DeployInfrastructure
+    pool:
+      vmImage: 'ubuntu-18.04'
+    environment: spike
+    variables:
+    - group: Release
+    strategy:
+      runOnce:
+        deploy:
+          steps: 
+          - task: AzureCLI@2
+            displayName: deployinfrastructure
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az configure --defaults location=$(LOCATION)
+                az group create --name $(RG_NAME)
+
+                az appservice plan create \
+                  --name $(PLAN_NAME \
+                  --resource-group $(RG_NAME)) \
+                  --sku $(ASP_SKU)
+
+                az webapp create \
+                  --name $(WEB_APP_NAME) \
+                  --resource-group $(RG_NAME \
+                  --plan $(PLAN_NAME) 
+                
+                az storage account create \
+                  --name $(STORAGE_NAME \
+                  --resource-group $(RG_NAME) \
+                  --sku Standard_LRS
+
+                az functionapp create \
+                  --name $(FUNCTION_APP_NAME) \
+                  --resource-group $(RG_NAME) \
+                  --storage-account $(STORAGE_NAME) \
+                  --functions-version 3 \
+                  --consumption-plan-location $(LOCATION)
+
+                az webapp list \
+                  --resource-group $(RG_NAME) \
+                  --query "[].{hostName: defaultHostName, state: state}" \
+                  --output table
+
+                az functionapp list \
+                  --resource-group $(RG_NAME) \
+                  --query "[].{hostName: defaultHostName, state: state}" \
+                  --output table
 
 - stage: 'Deploy'
   displayName: 'Deploy the web application'
@@ -85,6 +151,31 @@ stages:
             displayName: 'Azure App Service Deploy: website'
             inputs:
               azureSubscription: 'Resource Manager - Tailspin - Space Game'
-              appName: '$(WebAppName)'
+              appName: '$(WEB_APP_NAME)'
               appType: webAppLinux
-              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/Tailspin.SpaceGame.Web.zip'
+              package: '$(Pipeline.Workspace)/drop/$(BUILD_CONFIGURATION)/Tailspin.SpaceGame.Web.zip'
+
+          - task: AzureFunctionApp@1
+            displayName: 'Azure Function Deploy: leaderboard'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appType: functionAppLinux
+              appName: $(LEADERBOARD_NAME)
+              package: '$(Pipeline.Workspace)/drop/$(BUILD_CONFIGURATION)/Tailspin.SpaceGame.LeaderboardFunction.zip'
+              runtimeStack: DOCKER|microsoft/azure-functions-dotnet-core3.0:3.0
+              startUpCommand: 'func azure functionapp publish $(FUNCTION_APP_NAME) --no-bundler'
+
+          - task: AzureAppServiceSettings@1
+            displayName: 'Update web app settings'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appName: $(WEBAPP_NAME)
+              resourceGroupName: $(RG_NAME)
+              appSettings: |
+                [
+                  {
+                    "name": "AppSettings:LeaderboardFunctionUrl",
+                    "value": "http://$(FUNCTION_APP_NAME).azurewebsites.net/api/LeaderboardFunction",
+                    "slotSetting": false
+                  }
+                ]
