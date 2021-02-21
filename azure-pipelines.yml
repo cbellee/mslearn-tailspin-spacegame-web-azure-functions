@@ -150,7 +150,7 @@ stages:
           - task: AzureWebApp@1
             displayName: 'Azure App Service Deploy: website'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
               appName: '$(WEB_APP_NAME)'
               appType: webAppLinux
               package: '$(Pipeline.Workspace)/drop/$(BUILD_CONFIGURATION)/Tailspin.SpaceGame.Web.zip'
@@ -158,7 +158,7 @@ stages:
           - task: AzureFunctionApp@1
             displayName: 'Azure Function Deploy: leaderboard'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
               appType: functionAppLinux
               appName: $(LEADERBOARD_NAME)
               package: '$(Pipeline.Workspace)/drop/$(BUILD_CONFIGURATION)/Tailspin.SpaceGame.LeaderboardFunction.zip'
@@ -168,7 +168,7 @@ stages:
           - task: AzureAppServiceSettings@1
             displayName: 'Update web app settings'
             inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              azureSubscription: $(AZURE_SUBSCRIPTION_CXN)
               appName: $(WEBAPP_NAME)
               resourceGroupName: $(RG_NAME)
               appSettings: |
